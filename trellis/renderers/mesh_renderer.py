@@ -119,6 +119,12 @@ class MeshRenderer:
             elif type == "normal_map" :
                 img = dr.interpolate(mesh.vertex_attrs[:, 3:].contiguous(), rast, faces_int)[0]
                 img = dr.antialias(img, rast, vertices_clip, faces_int)
+
+            elif type == "rendervis" :
+
+                rendervis=mesh.render_vis[:,None,:]
+                img = dr.interpolate(rendervis.permute(1,0,2).float().contiguous(), rast, faces_int)[0]
+                
             elif type == "color" :
                 img = dr.interpolate(mesh.vertex_attrs[:, :3].contiguous(), rast, faces_int)[0]
                 img = dr.antialias(img, rast, vertices_clip, faces_int)

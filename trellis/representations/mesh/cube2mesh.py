@@ -11,6 +11,7 @@ class MeshExtractResult:
         faces,
         vertex_attrs=None,
         res=64
+        render_vis=None,
     ):
         self.vertices = vertices
         self.faces = faces.long()
@@ -18,6 +19,8 @@ class MeshExtractResult:
         self.face_normal = self.comput_face_normals(vertices, faces)
         self.res = res
         self.success = (vertices.shape[0] != 0 and faces.shape[0] != 0)
+        
+        self.render_vis = render_vis
 
         # training only
         self.tsdf_v = None

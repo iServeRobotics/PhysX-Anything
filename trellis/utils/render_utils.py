@@ -110,6 +110,50 @@ def render_multiview(sample, resolution=512, nviews=30):
     res = render_frames(sample, extrinsics, intrinsics, {'resolution': resolution, 'bg_color': (0, 0, 0)})
     return res['color'], extrinsics, intrinsics
 
+def render_video_gt(sample, resolution=512, bg_color=(0, 0, 0), num_frames=300, r=2, fov=40, **kwargs):
+    yaws = torch.linspace(0, 2 * 3.1415, num_frames)
+    pitch = 0.25 + 0.5 * torch.sin(torch.linspace(0, 2 * 3.1415, num_frames))
+    yaws = yaws.tolist()
+    pitch = pitch.tolist()
+    extrinsics, intrinsics = yaw_pitch_r_fov_to_extrinsics_intrinsics(yaws, pitch, r, fov)
+    
+    return render_frames_eval(sample, extrinsics, intrinsics, {'resolution': resolution, 'bg_color': bg_color}, return_types=["mask", "rendervis"],**kwargs)
+
+def render_frames_eval(sample, extrinsics, intrinsics, options={}, colors_overwrite=None, verbose=True,return_types=["color","mask", "normal","allphy_map"], **kwargs):
+    renderer = get_renderer(sample, **options)
+    rets = {}
+    
+    for j, (extr, intr) in tqdm(enumerate(zip(extrinsics, intrinsics)), desc='Rendering', disable=not verbose):
+        if isinstance(sample, MeshExtractResult):
+            res = renderer.render(sample, extr, intr, return_types=return_types)
+            
+            if 'normal' in res and 'normal' not in rets: rets['normal'] = []
+            if 'color' in res and 'color' not in rets: rets['color'] = []
+            if 'color_gt' in res and 'color_gt' not in rets: rets['color_gt'] = []
+            if 'allphy_map' in res and 'allphy_map' not in rets: rets['allphy_map'] = []
+            if 'mask' in res and 'mask' not in rets: rets['mask'] = []
+            if 'rendervis' in res and 'rendervis' not in rets: rets['rendervis'] = []
+
+            if 'allphy_map' in res: rets['allphy_map'].append(res['allphy_map'])
+            if 'rendervis' in res: rets['rendervis'].append(res['rendervis'])
+            if 'normal' in res: rets['normal'].append(np.clip(res['normal'].detach().cpu().numpy().transpose(1, 2, 0) * 255, 0, 255).astype(np.uint8))
+            if 'color' in res: rets['color'].append(np.clip(res['color'].detach().cpu().numpy().transpose(1, 2, 0) * 255, 0, 255).astype(np.uint8))
+            if 'color_gt' in res: rets['color_gt'].append(np.clip(res['color_gt'].detach().cpu().numpy().transpose(1, 2, 0) * 255, 0, 255).astype(np.uint8))
+            if 'mask' in res: rets['mask'].append(res['mask'])
+
+            
+        else:
+            res = renderer.render(sample, extr, intr, colors_overwrite=colors_overwrite)
+            if 'color' not in rets: rets['color'] = []
+            if 'depth' not in rets: rets['depth'] = []
+            rets['color'].append(np.clip(res['color'].detach().cpu().numpy().transpose(1, 2, 0) * 255, 0, 255).astype(np.uint8))
+            if 'percent_depth' in res:
+                rets['depth'].append(res['percent_depth'].detach().cpu().numpy())
+            elif 'depth' in res:
+                rets['depth'].append(res['depth'].detach().cpu().numpy())
+            else:
+                rets['depth'].append(None)
+    return rets
 
 def render_snapshot(samples, resolution=512, bg_color=(0, 0, 0), offset=(-16 / 180 * np.pi, 20 / 180 * np.pi), r=10, fov=8, **kwargs):
     yaw = [0, np.pi/2, np.pi, 3*np.pi/2]
