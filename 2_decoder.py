@@ -3,15 +3,12 @@ import os
 os.environ['SPCONV_ALGO'] = 'native'        # Can be 'native' or 'auto', default is 'auto'.
                                             # 'auto' is faster but will do benchmarking at the beginning.
                                             # Recommended to set to 'native' if run only once.
-
-import imageio
+import gc
 from PIL import Image
 from trellis.pipelines import TrellisImageTo3DPipeline
-from trellis.utils import render_utils, postprocessing_utils
-import ipdb
+from trellis.utils import postprocessing_utils
 import numpy as np
 import torch
-import trimesh
 # Load a pipeline from a model folder or a Hugging Face model hub.
 pipeline = TrellisImageTo3DPipeline.from_pretrained("./pretrain/decoder")
 pipeline.cuda()
@@ -53,6 +50,13 @@ for name in namelist:
 
         
         glb.export(os.path.join(qwenpath,'sample.glb'))
+
+        del outputs, ss
+
+        gc.collect()
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
 
 
 
